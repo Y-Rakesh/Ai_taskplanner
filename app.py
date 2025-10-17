@@ -11,8 +11,8 @@ from pymongo import MongoClient
 # --- SETUP AND CONFIGURATION ---
 
 load_dotenv()
+app = Flask(__name__, static_folder=".", static_url_path="/")
 
-app = Flask(__name__, static_folder="../frontend", static_url_path="/")
 CORS(app)
 # --- MONGODB CONFIGURATION ---
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
@@ -101,7 +101,7 @@ def generate_plan_locally(goal_text):
 
 @app.route("/")
 def serve_frontend():
-    return send_from_directory(app.static_folder, "index.html")
+    return send_from_directory(".", "index.html")
 @app.route("/api/generate-plan", methods=["POST"])
 def generate_plan_endpoint():
     data = request.json
