@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Task Planner</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom styles to use the Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Simple animation for the loading spinner */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto max-w-3xl px-4 py-8 md:py-16">
+
+        <!-- Header Section -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-900">Smart Task Planner</h1>
+            <p class="mt-3 text-lg text-slate-600">Enter your goal, and let AI break it down into actionable steps.</p>
+        </header>
+      
+
+
+        <!-- Input Form Section -->
+        <main>
+            <form id="goal-form" class="bg-white p-6 rounded-xl shadow-md">
+                <div class="flex flex-col">
+                    <label for="goal-input" class="mb-2 font-semibold text-slate-700">What is your goal?</label>
+                    <input type="text" id="goal-input" placeholder="e.g., Launch a new product in 2 weeks" class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" required>
+                </div>
+                <button type="submit" id="submit-button" class="mt-4 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105 flex items-center justify-center">
+                    <!-- The text will be replaced by the spinner during loading -->
+                    <span id="button-text">Generate Plan</span>
+                    <!-- Loading Spinner (hidden by default) -->
+                    <div id="loader" class="hidden spinner w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                </button>
+            </form>
+
+            <!-- Error Message Display -->
+            <div id="error-container" class="mt-4 text-center text-red-600 font-medium"></div>
+
+            <!-- Results Section -->
+            <section id="results-container" class="mt-10 bg-white p-6 rounded-xl shadow-md hidden">
+                <!-- Content will be dynamically inserted here by JavaScript -->
+            </section>
+        <br>
+              <!-- Previous Goals Section -->
+<section id="previous-goals-container" class="mb-8">
+    <h2 class="text-2xl font-bold mb-4">Previous Goals</h2>
+    <div id="previous-goals-list" class="space-y-4"></div>
+</section>
+        </main>
+    </div>
+
+    <script>
+        // --- DOM Element References ---
+        const goalForm = document.getElementById('goal-form');
+        const goalInput = document.getElementById('goal-input');
+        const resultsContainer = document.getElementById('results-container');
+        const errorContainer = document.getElementById('error-container');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const loader = document.getElementById('loader');
+
+        // --- API Endpoint ---
+        // This should point to your running Flask backend.
+        const API_URL = 'http://127.0.0.1:5000/api/generate-plan';
+
+        // --- Event Listener for Form Submission ---
+        goalForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent the default page reload
+            
+            const goal = goalInput.value.trim();
+            if (!goal) {
+                displayError("Please enter a goal.");
+                return;
+            }
+
+            // --- UI State Management: Show Loading ---
+            setLoadingState(true);
+            clearResults();
+
+            try {
+                // --- API Call ---
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ goal: goal })
+                });
+
+                if (!response.ok) {
+                    // Handle HTTP errors (e.g., 500 Internal Server Error)
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                    renderPlan(data);
+
+// 🔄 Refresh the "Previous Goals" section after new goal is saved
+await loadPreviousGoals();
+
+
+            } catch (error) {
+                console.error("Error fetching or processing plan:", error);
+                displayError(error.message || "An unknown error occurred. Please try again.");
+            } finally {
+                // --- UI State Management: Hide Loading ---
+                setLoadingState(false);
+            }
+        });
+
+        // --- Helper Functions ---
+
+        /**
+         * Toggles the loading state of the submit button.
+         * @param {boolean} isLoading - Whether to show the loading spinner.
+         */
+        function setLoadingState(isLoading) {
+            if (isLoading) {
+                submitButton.disabled = true;
+                buttonText.classList.add('hidden');
+                loader.classList.remove('hidden');
+            } else {
+                submitButton.disabled = false;
+                buttonText.classList.remove('hidden');
+                loader.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Clears previous results and error messages.
+         */
+        function clearResults() {
+            resultsContainer.innerHTML = '';
+            resultsContainer.classList.add('hidden');
+            errorContainer.textContent = '';
+        }
+        
+        /**
+         * Displays an error message to the user.
+         * @param {string} message - The error message to display.
+         */
+        function displayError(message) {
+            errorContainer.textContent = message;
+        }
+
+        /**
+         * Renders the generated plan to the DOM.
+         * @param {object} planData - The plan data received from the API.
+         */
+        function renderPlan(planData) {
+            if (!planData || !planData.tasks || planData.tasks.length === 0) {
+                displayError("The AI did not return a valid plan. Please try a different goal.");
+                return;
+            }
+
+            let htmlContent = `
+                <h2 class="text-2xl font-bold mb-2">Your Plan for:</h2>
+                <p class="text-lg text-slate-700 mb-6">${escapeHTML(planData.goal_text)}</p>
+                <div class="space-y-4">
+            `;
+
+            planData.tasks.forEach(task => {
+                htmlContent += `
+                    <div class="border border-slate-200 p-4 rounded-lg bg-slate-50">
+                        <p class="font-semibold text-slate-800">${escapeHTML(task.task_description)}</p>
+                        <div class="mt-2 text-sm text-slate-600">
+                            <p><span class="font-medium">Dependencies:</span> ${escapeHTML(task.dependencies) || 'None'}</p>
+                            <p><span class="font-medium">Deadline:</span> ${formatDeadline(task.deadline)}</p>
+
+                        </div>
+                    </div>
+                `;
+            });
+            
+            htmlContent += '</div>';
+            resultsContainer.innerHTML = htmlContent;
+            resultsContainer.classList.remove('hidden');
+        }
+
+        /**
+         * Escapes HTML to prevent XSS attacks.
+         * @param {string} str - The string to escape.
+         * @returns {string} The escaped string.
+         */
+        function escapeHTML(str) {
+            const p = document.createElement('p');
+            p.textContent = str;
+            return p.innerHTML;
+        }
+ // Convert ISO date (e.g. 2024-09-22T14:30:00.000Z) to readable date only
+function formatDeadline(deadline) {
+    if (!deadline) return 'Not set';
+    try {
+        const date = new Date(deadline);
+        // Example output: "22 Sep 2024"
+        return date.toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    } catch (e) {
+        return deadline; // fallback if parsing fails
+    }
+}
+
+
+        // --- Fetch and Display Previous Goals on Page Load ---
+// --- Fetch and Display Previous Goals on Page Load ---
+async function loadPreviousGoals() {
+    const container = document.getElementById('previous-goals-list');
+    container.innerHTML = '<p>Loading previous goals...</p>';
+
+    try {
+        const response = await fetch('http://127.0.0.1:5000/api/get-all-goals');
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+        const goals = await response.json();
+        if (!goals.length) {
+            container.innerHTML = '<p class="text-slate-600">No previous goals found.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        goals.forEach(goal => {
+            // Goal header
+            let html = `
+                <section class="mb-6">
+                    <h3 class="text-xl font-bold mb-2">Your Plan for:</h3>
+                    <p class="text-slate-700 mb-4">${escapeHTML(goal.goal_text)}</p>
+            `;
+
+            // Tasks as cards
+            goal.tasks.forEach(task => {
+                html += `
+                    <div class="bg-white p-4 rounded-lg shadow mb-3">
+                        <p class="font-semibold text-slate-800">${escapeHTML(task.task_description)}</p>
+                        <p class="text-sm text-slate-600 mt-1">Dependencies: ${escapeHTML(task.dependencies) || 'None'}</p>
+                       <p class="text-sm text-slate-600">Deadline: ${formatDeadline(task.deadline)}</p>
+          </div>
+                `;
+            });
+
+            html += '</section>';
+            container.innerHTML += html;
+        });
+    } catch (err) {
+        container.innerHTML = `<p class="text-red-600">Failed to load previous goals: ${err.message}</p>`;
+    }
+}
+ loadPreviousGoals();
+
+
+    </script>
+</body>
+</html>

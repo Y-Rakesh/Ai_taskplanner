@@ -1,0 +1,17 @@
+# Flask is the web framework for our backend API
+Flask==3.0.0
+
+# Flask-Cors handles Cross-Origin Resource Sharing, allowing frontend-backend communication
+Flask-Cors==4.0.0
+
+# Groq SDK for AI plan generation
+groq==0.32.0
+
+# HTTPX compatible version for Groq SDK
+httpx==0.27.2
+
+# MongoDB driver for Python
+pymongo[srv]==4.5.1
+
+# For managing environment variables
+python-dotenv==1.0.1
