@@ -80,7 +80,9 @@
 
         // --- API Endpoint ---
         // This should point to your running Flask backend.
-        const API_URL = 'http://127.0.0.1:5000/api/generate-plan';
+        // --- API Endpoint ---
+const API_URL = 'https://aitaskplanner-production.up.railway.app/api/generate-plan';
+
 
         // --- Event Listener for Form Submission ---
         goalForm.addEventListener('submit', async (event) => {
@@ -229,7 +231,9 @@ async function loadPreviousGoals() {
     container.innerHTML = '<p>Loading previous goals...</p>';
 
     try {
-        const response = await fetch('http://127.0.0.1:5000/api/get-all-goals');
+        const PREVIOUS_GOALS_URL = 'https://aitaskplanner-production.up.railway.app/api/get-all-goals';
+
+        const response = await fetch(PREVIOUS_GOALS_URL);
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
         const goals = await response.json();
